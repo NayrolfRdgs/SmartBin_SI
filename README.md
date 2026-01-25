@@ -1,13 +1,91 @@
-🗑️ Projet Poubelle Intelligente SIBienvenue dans le dépôt du Centre de Contrôle pour le Tri Robotisé. Ce projet utilise une NVIDIA Jetson Nano couplée à un Arduino pour automatiser le tri des déchets via une interface intelligente et une base de données locale.🚀 Guide d'Installation1. Préparation du Système (OS)OS recommandé : JetPack SDK (basé sur Ubuntu 18.04 ou 20.04).Flashage : Utilisez BalenaEtcher pour graver l'image sur une carte microSD (Min. 32 Go, Classe 10).Initialisation : Suivez l'assistant de configuration au premier démarrage (clavier, WiFi, utilisateur).2. Environnement Python & DépendancesOuvrez un terminal sur votre Jetson et exécutez les commandes suivantes pour préparer l'environnement :Bash# Mise à jour du système
+# 🤖 Smart Bin SI | Control Center
+
+> **Système de tri robotisé piloté par NVIDIA Jetson Nano & Arduino.**
+
+---
+
+## 🛠 Architecture du Système
+
+Le projet transforme la **Jetson Nano** en unité centrale de traitement (IA & Logique) communiquant en série avec un **Arduino** chargé de l'exécution mécanique.
+
+### 1. Initialisation de l'OS
+
+* **Système :** [NVIDIA JetPack SDK](https://developer.nvidia.com/embedded/jetpack)
+* **Procédure :** 1. Télécharger l'image SD adaptée.
+2. Flasher via `BalenaEtcher`.
+3. Allouer au moins **32 Go** (Classe 10) pour éviter les goulots d'étranglement.
+
+### 2. Stack Logicielle
+
+Exécutez ce bloc pour configurer l'environnement Python et les accès matériels :
+
+```bash
+# Update System
 sudo apt-get update && sudo apt-get upgrade -y
 
-# Installation de pip et des outils graphiques
-sudo apt-get install python3-pip python3-tk -y
+# Core Dependencies
+sudo apt-get install -y python3-pip python3-tk
 
-# Installation des bibliothèques nécessaires
+# Hardware Communication
 pip3 install pyserial
-3. Base de DonnéesLe système utilise SQLite, une solution légère idéale pour l'embarqué.Le fichier inventaire_tri.db est créé automatiquement lors du premier lancement du script.Aucune installation de serveur SQL tiers n'est requise.4. Structure du ProjetOrganisez vos fichiers pour garantir le bon fonctionnement des chemins relatifs :Bashmkdir ~/Projet_Poubelle_SI
-cd ~/Projet_Poubelle_SI
-# Placez ici votre fichier tri_control_center.py
-🔌 Connexion Physique (Hardware)ComposantConnexionNote ImportanteArduinoPort USB JetsonCommunication série via /dev/ttyUSB0 ou /dev/ttyACM0ServomoteursPins 9 et 10 (Arduino)Modèle MG996R recommandéAlimentationExterne (5V/6V)NE PAS alimenter les moteurs via l'Arduino (risque de crash Jetson).🛠️ UtilisationLancement du systèmeBashpython3 tri_control_center.py
-Cycle de fonctionnementSaisie : Entrez le nom de l'objet dans le terminal.Vérification : Le script interroge la base de données.Décision :Objet connu : L'ordre de tri est envoyé instantanément à l'Arduino.Objet inconnu : L'interface vous invite à sélectionner une catégorie (couleur).Apprentissage : Cochez "Verrouiller (*)" pour mémoriser ce choix et automatiser le tri futur de cet objet.📈 Évolutions futuresIntégration Vision : Migration vers YOLOv6 pour la détection en temps réel.Deep Learning : Nécessite l'installation de PyTorch (inclus dans les bibliothèques CUDA de JetPack).
+
+```
+
+---
+
+## 📂 Organisation du Workspace
+
+Il est recommandé de respecter la structure suivante pour le déploiement :
+
+```text
+Projet_Poubelle_SI/
+├── 📄 tri_control_center.py   # Logique principale & GUI
+├── 🗃️ inventaire_tri.db       # DB SQLite (Générée automatiquement)
+└── 📜 README.md               # Documentation
+
+```
+
+---
+
+## ⚡ Schéma de Connexion
+
+| Composant | Interface | Description |
+| --- | --- | --- |
+| **Jetson Nano** | USB Type A | Maître (Calcul & Interface) |
+| **Arduino Uno** | USB Type B | Esclave (Contrôle Servos) |
+| **Servos MG996R** | PWM D9 / D10 | Actionneurs de tri |
+
+> [!CAUTION]
+> **ALIMENTATION EXTERNE REQUISE** : Les servomoteurs MG996R tirent un courant de crête important. Utilisez une alimentation 5V/3A dédiée pour éviter de griller les ports USB de la Jetson.
+
+---
+
+## 🕹️ Workflow de Tri
+
+```python
+# Lancement de l'unité de contrôle
+python3 tri_control_center.py
+
+```
+
+### Logique de Décision :
+
+1. **Input** ➔ Saisie utilisateur (Nom de l'objet).
+2. **Lookup** ➔ Requête SQL dans `inventaire_tri.db`.
+3. **Conditionnelle** :
+* `IF EXISTS` ➔ Envoi du code `Serial` vers Arduino.
+* `ELSE` ➔ Appel de l'UI (User Input) pour assignation de couleur.
+
+
+4. **Learning** ➔ Si `Verrouiller (*)` est actif, insertion de la nouvelle règle en base.
+
+---
+
+## 🔭 Roadmap : Vision par Ordinateur
+
+Le passage à **YOLOv6** est la prochaine étape majeure.
+
+* **Pré-requis :** PyTorch & Drivers CUDA (inclus dans JetPack).
+* **Objectif :** Suppression de la saisie manuelle pour un tri 100% autonome par caméra.
+
+Souhaitez-vous que je rédige le **code Arduino (C++)** correspondant pour gérer les signaux envoyés par la Jetson ?
