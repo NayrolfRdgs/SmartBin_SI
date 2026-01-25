@@ -1,16 +1,13 @@
-# SIpoubelle
+🗑️ Projet Poubelle Intelligente SIBienvenue dans le dépôt du Centre de Contrôle pour le Tri Robotisé. Ce projet utilise une NVIDIA Jetson Nano couplée à un Arduino pour automatiser le tri des déchets via une interface intelligente et une base de données locale.🚀 Guide d'Installation1. Préparation du Système (OS)OS recommandé : JetPack SDK (basé sur Ubuntu 18.04 ou 20.04).Flashage : Utilisez BalenaEtcher pour graver l'image sur une carte microSD (Min. 32 Go, Classe 10).Initialisation : Suivez l'assistant de configuration au premier démarrage (clavier, WiFi, utilisateur).2. Environnement Python & DépendancesOuvrez un terminal sur votre Jetson et exécutez les commandes suivantes pour préparer l'environnement :Bash# Mise à jour du système
+sudo apt-get update && sudo apt-get upgrade -y
 
-Guide d'Installation : Poubelle Intelligente SICe document détaille les étapes pour transformer votre NVIDIA Jetson Nano en centre de contrôle pour le tri robotisé.1. Choix et Installation de l'OSOS : Utilisez JetPack SDK (basé sur Ubuntu 18.04 ou 20.04 selon votre version de Jetson).Flashage : Utilisez BalenaEtcher pour graver l'image ISO sur une carte microSD (minimum 32 Go, classe 10).Premier démarrage : Suivez les étapes de configuration (langue, clavier, WiFi).2. Préparation de l'Environnement PythonOuvrez un terminal sur la Jetson et installez les dépendances nécessaires :# Mise à jour du système
-sudo apt-get update
-sudo apt-get upgrade
+# Installation de pip et des outils graphiques
+sudo apt-get install python3-pip python3-tk -y
 
-# Installation de pip et des outils python
-sudo apt-get install python3-pip
-sudo apt-get install python3-tk
-
-# Installation des bibliothèques de communication et d'interface
+# Installation des bibliothèques nécessaires
 pip3 install pyserial
-3. Mise en place de la Base de DonnéesLe script Python gère la création automatique de la base de données SQLite (inventaire_tri.db). Vous n'avez pas besoin d'installer de serveur SQL lourd, SQLite est un simple fichier local idéal pour la Jetson.4. Organisation des FichiersCréez un dossier dédié pour le projet :mkdir ~/Projet_Poubelle_SI
+3. Base de DonnéesLe système utilise SQLite, une solution légère idéale pour l'embarqué.Le fichier inventaire_tri.db est créé automatiquement lors du premier lancement du script.Aucune installation de serveur SQL tiers n'est requise.4. Structure du ProjetOrganisez vos fichiers pour garantir le bon fonctionnement des chemins relatifs :Bashmkdir ~/Projet_Poubelle_SI
 cd ~/Projet_Poubelle_SI
-Placez-y votre fichier principal :tri_control_center.py (Le code de l'interface et de la logique).5. Connexion PhysiqueArduino : Branchez-le via USB à l'un des ports de la Jetson.Moteurs : Connectez vos servomoteurs MG996R à l'Arduino (Pins 9 et 10).Alimentation : IMPORTANT Utilisez une alimentation externe pour les moteurs. Ne les alimentez pas via l'Arduino seul, la Jetson risquerait de s'éteindre à cause de la chute de tension.6. Lancement du SystèmePour démarrer votre centre de contrôle :python3 tri_control_center.py
-7. Fonctionnement du Cycle de TriSaisie : Tapez le nom de l'objet dans le terminal.Vérification : Le script cherche dans inventaire_tri.db.Décision :Si connu : L'ordre est envoyé à l'Arduino.Si inconnu : L'interface graphique s'illumine et vous demande de cliquer sur une couleur.Verrouillage : Cochez la case "Verrouiller (*)" pour que l'objet soit traité automatiquement la prochaine fois.Note : Pour le futur passage à YOLOv6, il faudra installer PyTorch et les drivers NVIDIA spécifiques au Deep Learning (inclus dans JetPack).
+# Placez ici votre fichier tri_control_center.py
+🔌 Connexion Physique (Hardware)ComposantConnexionNote ImportanteArduinoPort USB JetsonCommunication série via /dev/ttyUSB0 ou /dev/ttyACM0ServomoteursPins 9 et 10 (Arduino)Modèle MG996R recommandéAlimentationExterne (5V/6V)NE PAS alimenter les moteurs via l'Arduino (risque de crash Jetson).🛠️ UtilisationLancement du systèmeBashpython3 tri_control_center.py
+Cycle de fonctionnementSaisie : Entrez le nom de l'objet dans le terminal.Vérification : Le script interroge la base de données.Décision :Objet connu : L'ordre de tri est envoyé instantanément à l'Arduino.Objet inconnu : L'interface vous invite à sélectionner une catégorie (couleur).Apprentissage : Cochez "Verrouiller (*)" pour mémoriser ce choix et automatiser le tri futur de cet objet.📈 Évolutions futuresIntégration Vision : Migration vers YOLOv6 pour la détection en temps réel.Deep Learning : Nécessite l'installation de PyTorch (inclus dans les bibliothèques CUDA de JetPack).
