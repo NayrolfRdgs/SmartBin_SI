@@ -576,9 +576,9 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de 
 
 ## 📞 Support
 
-- **Documentation complète** : [docs/](docs/)
-- **Issues GitHub** : [Créer un ticket](https://github.com/ton-username/SmartBin_SI/issues)
-- **Email** : support@smartbin-si.com
+- **Documentation complète** : [ARCHITECTURE.md](ARCHITECTURE) [QUICK_START.md](QUICK_START)
+- **Issues GitHub** : [Créer un ticket](https://github.com/sayfox8/SmartBin_SI/issues)
+- **Email** : 
 
 ---
 
