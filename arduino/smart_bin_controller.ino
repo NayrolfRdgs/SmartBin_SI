@@ -185,7 +185,7 @@ void executeSortingSequence(int targetAngle, String binName, int tiltDirection) 
 
 
 // ============================================
-// FONCTIONS UTILITAIRES (Optionnel)
+// FONCTIONS UTILITAIRES
 // ============================================
 
 /**
@@ -200,7 +200,6 @@ void emergencyStop() {
 
 /**
  * Mode calibration - balaye lentement toutes les positions
- * Utile pour tester les plages de mouvement des servos
  */
 void calibrationMode() {
   Serial.println("Demarrage de la calibration...");
