@@ -39,29 +39,32 @@ Smart Bin SI est un **système de tri automatique de déchets** qui utilise :
    - 🟢 **Vert** : Organique (déchets alimentaires, biodégradable)
    - 🟤 **Marron** : Déchets généraux (non recyclable)  
 ✅ **Apprentissage automatique** : mémorise les nouveaux objets  
+✅ **Apprentissage au fur et à mesure** : quand tu confirmes une détection (« oui c’est correct »), l’image est sauvegardée pour réentraîner le modèle (voir [docs/APPENTISSAGE.md](docs/APPENTISSAGE.md))  
 ✅ **Statistiques** : suivi des performances de tri  
-✅ **Deux modes** : automatique (YOLO) ou manuel (saisie texte)
+✅ **Deux modes** : automatique (YOLO + caméra) ou manuel (saisie texte)
 
 ---
 
 ## 🎬 Démonstration
 
-### Mode Automatique
+### Mode Automatique (détection + apprentissage)
 ```bash
-python3 yolo_detector.py
+cd src && python yolo_detector.py
+# ou depuis la racine : python -m src.yolo_detector
 ```
+**Apprentissage** : à chaque détection validée (« y »), l’image est sauvegardée dans `data/training_images/<classe>/` pour améliorer le modèle plus tard. Voir [docs/APPENTISSAGE.md](docs/APPENTISSAGE.md).
 1. Place un déchet devant la caméra
 2. YOLO détecte l'objet (ex: "plastic_bottle")
 3. Le système vérifie en base de données
 4. La plateforme tourne vers le bon bac
 5. Le déchet est déposé automatiquement
 
-### Mode Manuel
+### Mode Manuel (sans caméra)
 ```bash
-python3 waste_classifier.py
+cd src && python waste_classifier.py
 ```
-1. Entre le nom d'un objet (ex: "plastic_bottle")
-2. Le système assigne ou récupère la couleur du bac
+1. Entre le nom d'un objet (ex: "plastic_bottle") ou "stats" / "quit"
+2. Le système assigne ou récupère la couleur du bac (DB + mapping)
 3. L'Arduino effectue le tri
 
 ---

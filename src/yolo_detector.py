@@ -1,7 +1,8 @@
 """
-Smart Bin SI - Détecteur YOLO avec Caméra
-Détecte les objets via caméra et utilise waste_classifier pour le tri
-Support pour l'apprentissage : correction manuelle et ajout d'images
+Smart Bin SI - Détecteur YOLO avec apprentissage au fur et à mesure
+- Détecte les objets via caméra
+- Demande ta validation : si tu dis "oui c'est correct", l'image est sauvegardée pour réentraîner le modèle
+- Utilise waste_classifier pour le tri (DB + Arduino)
 """
 
 import cv2
@@ -9,37 +10,15 @@ import torch
 import time
 import numpy as np
 from pathlib import Path
-import sys
+from datetime import datetime
 
-# Importer le module de classification
 import waste_classifier
-
-# ============================================
-# CONFIGURATION
-# ============================================
-
-# Configuration du modèle
-MODEL_PATH = "models/best.pt"  # Chemin vers ton modèle YOLO entraîné
-CONFIDENCE_THRESHOLD = 0.6     # Confiance minimum pour accepter une détection
-IOU_THRESHOLD = 0.45           # Seuil IoU pour la suppression non-maximale
-
-# Configuration caméra
-CAMERA_SOURCE = 0  # 0 pour caméra USB, ou "rtsp://..." pour caméra IP
-USE_CSI_CAMERA = False  # True pour caméra Raspberry Pi sur Jetson
-
-# Configuration affichage
-SHOW_DISPLAY = True
-FRAME_WIDTH = 640
-FRAME_HEIGHT = 480
-
-# Comportement de détection
-AUTO_SORT_DELAY = 2.0  # Secondes d'attente avant le tri auto
-MIN_DETECTIONS = 3     # Nombre minimum de détections consécutives avant tri
-
-# Mode d'apprentissage
-LEARNING_MODE = True   # Si True, permet de corriger les détections
-SAVE_IMAGES = True     # Si True, sauvegarde les images pour entraînement
-IMAGES_DIR = "data/captured_images"  # Dossier pour les images capturées
+from config import (
+    MODEL_PATH, CONFIDENCE_THRESHOLD, IOU_THRESHOLD,
+    CAMERA_SOURCE, USE_CSI_CAMERA, FRAME_WIDTH, FRAME_HEIGHT, SHOW_DISPLAY,
+    AUTO_SORT_DELAY, MIN_DETECTIONS, LEARNING_MODE, SAVE_IMAGES,
+    TRAINING_DIR, BIN_COLORS,
+)
 
 
 # ============================================
@@ -104,9 +83,9 @@ class WasteDetector:
         waste_classifier.init_serial_connection()
         waste_classifier.init_database()
         
-        # Créer le dossier pour les images capturées
+        # Dossier pour les images d'apprentissage (quand tu confirmes "correct")
         if SAVE_IMAGES:
-            Path(IMAGES_DIR).mkdir(parents=True, exist_ok=True)
+            TRAINING_DIR.mkdir(parents=True, exist_ok=True)
         
         print("✓ Détecteur initialisé\n")
     
@@ -272,15 +251,7 @@ class WasteDetector:
             # Obtenir la couleur du bac pour ce déchet (juste pour affichage)
             bin_color = self.get_bin_color_for_display(class_name)
             
-            # Choisir la couleur d'affichage selon le bac
-            if bin_color == "yellow":
-                color = (0, 255, 255)  # Jaune en BGR
-            elif bin_color == "green":
-                color = (0, 255, 0)    # Vert
-            elif bin_color == "brown":
-                color = (0, 100, 200)  # Marron
-            else:
-                color = (128, 128, 128)  # Gris pour inconnu
+            color = BIN_COLORS.get(bin_color, BIN_COLORS["unknown"])
             
             # Dessiner la boîte
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
@@ -302,50 +273,80 @@ class WasteDetector:
         
         return frame
     
-    def save_image_for_training(self, frame, class_name, correct=True):
+    def save_image_for_training(self, frame, class_name, bbox=None, class_id=None, correct=True):
         """
-        Sauvegarder une image pour l'entraînement futur
+        Sauvegarde une image pour le réentraînement YOLO.
+        Quand tu confirmes que la détection est correcte, l'image est stockée
+        dans data/training_images/<class_name>/ (+ fichier .txt YOLO si bbox fourni).
         
         Args:
             frame: Image à sauvegarder
-            class_name: Nom de la classe
-            correct: True si c'est une bonne détection, False si erreur
+            class_name: Nom de la classe (ex: plastic_bottle)
+            bbox: [x1, y1, x2, y2] optionnel → génère un .txt au format YOLO
+            class_id: index de la classe (pour le .txt YOLO)
+            correct: True = bonne détection, False = erreur (sauvegardé dans _errors/)
         """
         if not SAVE_IMAGES:
             return
-        
-        # Créer le dossier pour cette classe
-        class_dir = Path(IMAGES_DIR) / class_name
-        class_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Nom du fichier avec timestamp
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        prefix = "correct" if correct else "incorrect"
-        filename = class_dir / f"{prefix}_{timestamp}.jpg"
-        
-        # Sauvegarder
+        class_name = class_name.strip().lower().replace(" ", "_")
+        if correct:
+            folder = TRAINING_DIR / class_name
+        else:
+            folder = TRAINING_DIR / "_errors" / class_name
+        folder.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        prefix = "ok" if correct else "err"
+        base = f"{prefix}_{timestamp}"
+        filename = folder / f"{base}.jpg"
         cv2.imwrite(str(filename), frame)
-        print(f"💾 Image sauvegardée : {filename}")
+        # Fichier label YOLO (une ligne : class_id x_center y_center width height, normalisé 0-1)
+        if bbox is not None and class_id is not None and len(bbox) == 4:
+            h, w = frame.shape[:2]
+            x1, y1, x2, y2 = [float(x) for x in bbox]
+            x_center = ((x1 + x2) / 2) / w
+            y_center = ((y1 + y2) / 2) / h
+            width = (x2 - x1) / w
+            height = (y2 - y1) / h
+            label_path = folder / f"{base}.txt"
+            with open(label_path, "w") as f:
+                f.write(f"{class_id} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}\n")
+        print(f"💾 Image sauvegardée pour apprentissage : {filename.name} ({class_name})")
     
-    def handle_correction(self, frame, detected_class):
+    def _class_name_to_id(self, class_name):
+        """Retourne l'index de la classe dans le modèle (pour le label YOLO)."""
+        if not hasattr(self.model, "names"):
+            return None
+        names = self.model.names  # dict int -> str
+        for idx, name in names.items():
+            if name == class_name:
+                return idx
+        return None
+
+    def handle_correction(self, frame, best_detection):
         """
-        Gérer la correction manuelle d'une détection
+        Demande si la détection est correcte ; si oui, sauvegarde l'image (+ label YOLO) pour réentraînement.
         
         Args:
             frame: Image actuelle
-            detected_class: Classe détectée par YOLO
+            best_detection: dict avec 'class', 'confidence', 'bbox'
         """
+        detected_class = best_detection["class"]
+        bbox = best_detection.get("bbox")
+        class_id = self._class_name_to_id(detected_class)
+        
         print(f"\n⚠ YOLO a détecté : '{detected_class}'")
         print("Est-ce correct ?")
-        print("  y - Oui, c'est correct")
-        print("  n - Non, corriger")
+        print("  y - Oui, c'est correct → image sauvegardée pour améliorer le modèle")
+        print("  n - Non, corriger le nom")
         print("  skip - Ignorer")
         
         choice = input("Votre choix : ").strip().lower()
         
         if choice == 'y':
-            print("✓ Détection confirmée")
-            self.save_image_for_training(frame, detected_class, correct=True)
+            print("✓ Détection confirmée → image sauvegardée pour réentraînement")
+            self.save_image_for_training(
+                frame, detected_class, bbox=bbox, class_id=class_id, correct=True
+            )
             return detected_class
         
         elif choice == 'n':
@@ -353,9 +354,8 @@ class WasteDetector:
             correct_name = input("Nom correct : ").strip()
             
             if correct_name:
-                # Sauvegarder avec le nom correct
+                correct_name = correct_name.strip().lower().replace(" ", "_")
                 self.save_image_for_training(frame, correct_name, correct=True)
-                # Sauvegarder aussi comme erreur pour le nom détecté
                 self.save_image_for_training(frame, detected_class, correct=False)
                 print(f"✓ Correction enregistrée : {detected_class} → {correct_name}")
                 return correct_name
@@ -425,7 +425,7 @@ class WasteDetector:
                         
                         # En mode apprentissage, demander confirmation
                         if LEARNING_MODE:
-                            corrected_class = self.handle_correction(self.last_frame, waste_class)
+                            corrected_class = self.handle_correction(self.last_frame, best_detection)
                             if corrected_class is None:
                                 continue  # Ignoré par l'utilisateur
                             waste_class = corrected_class
@@ -500,10 +500,9 @@ class WasteDetector:
                     if self.last_detection:
                         corrected = self.handle_correction(
                             self.last_frame,
-                            self.last_detection['class']
+                            self.last_detection
                         )
                         if corrected:
-                            # Sauvegarder en base de données
                             bin_color = waste_classifier.ask_user_for_bin(corrected)
                             if bin_color:
                                 waste_classifier.save_to_database(corrected, bin_color)
