@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "author": "Влад Моржов",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-breadboard-half", "id": "bb1", "top": 294.6, "left": -400.4, "attrs": {} },
+    { "type": "wokwi-arduino-uno", "id": "uno", "top": 67.8, "left": -547.8, "attrs": {} },
+    { "type": "wokwi-servo", "id": "servo1", "top": 468.4, "left": -67.2, "attrs": {} },
+    { "type": "wokwi-servo", "id": "servo2", "top": 593.2, "left": -67.2, "attrs": {} }
+  ],
+  "connections": [
+    [ "uno:5V", "bb1:tp.1", "red", [ "v0" ] ],
+    [ "uno:GND.2", "bb1:tn.1", "black", [ "v0" ] ],
+    [ "servo1:GND", "bb1:30b.j", "black", [ "h0" ] ],
+    [ "servo1:V+", "bb1:29b.j", "red", [ "h0" ] ],
+    [ "servo1:PWM", "bb1:28b.j", "orange", [ "h0" ] ],
+    [ "bb1:30b.f", "bb1:30t.e", "black", [ "v0" ] ],
+    [ "bb1:29b.f", "bb1:29t.e", "red", [ "v0" ] ],
+    [ "bb1:30t.a", "bb1:tn.25", "black", [ "v0" ] ],
+    [ "servo2:GND", "bb1:27b.j", "black", [ "h0" ] ],
+    [ "servo2:V+", "bb1:26b.j", "red", [ "h0" ] ],
+    [ "servo2:PWM", "bb1:25b.j", "orange", [ "h0" ] ],
+    [ "bb1:27b.f", "bb1:27t.e", "black", [ "v0" ] ],
+    [ "bb1:26b.f", "bb1:26t.e", "red", [ "v0" ] ],
+    [ "bb1:27t.a", "bb1:tn.22", "black", [ "v0" ] ],
+    [ "bb1:29t.a", "bb1:tp.24", "red", [ "v0" ] ],
+    [ "bb1:26t.a", "bb1:tp.21", "red", [ "v0" ] ],
+    [ "bb1:28b.h", "uno:9", "orange", [ "h57.6", "v-374.4", "h-327.2" ] ],
+    [ "bb1:25b.i", "uno:10", "orange", [ "h96", "v-393.6", "h-346.3" ] ]
+  ],
+  "dependencies": {}
+}
