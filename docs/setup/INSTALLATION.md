@@ -22,7 +22,7 @@
 
 ### Système d'Exploitation
 
-- **Windows 10/11** (recommandé)
+- **Windows 10/11**
 - **Linux** (Ubuntu 20.04+)
 - **macOS** (10.14+)
 
