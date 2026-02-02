@@ -11,13 +11,13 @@
 
 ## 📚 Table des Matières
 
-1. [Présentation rapide](#présentation-rapide)
-2. [Démarrage rapide](#démarrage-rapide)
-3. [Architecture du système](#architecture-du-système)
-4. [Installation](#installation)
-5. [Utilisation](#utilisation)
-6. [Documentation](#documentation)
-7. [Support](#support)
+1. [Présentation rapide](#-présentation-rapide)
+2. [Démarrage rapide](#-démarrage-rapide)
+3. [Architecture du système](#️-architecture-du-système)
+4. [Installation](#-installation)
+5. [Utilisation](#-utilisation)
+6. [Documentation](#-documentation)
+7. [Support](#-support)
 
 ---
 
@@ -89,15 +89,15 @@ python src/waste_classifier.py
 │                      SMART BIN SI                            │
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
-│  📷 Caméra USB  →  🧠 YOLO Detection  →  💾 DB Manager    │
-│                                              ↓              │
-│                                        Classification       │
-│                                              ↓              │
-│                                        Decision Logic       │
-│                                              ↓              │
-│                                     📡 Serial Commands      │
-│                                              ↓              │
-│                                   ⚙️ Arduino (Servos)     │
+│ 📷 Caméra USB  →  🧠 YOLO Detection  →  💾 DB Manager 💾   │
+│                                                ↓             │
+│                                          Classification      │
+│                                                ↓             │
+│                                          Decision Logic      │
+│                                                ↓             │
+│                                     📡 Serial Commands 📡   │
+│                                                ↓             │
+│                                     ⚙️ Arduino (Servos) ⚙️  │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -338,7 +338,7 @@ Ce projet est sous licence Creative Commons Attribution-NonCommercial (CC BY-NC)
 
 ## 👥 Contributeurs
 
-- **Auteur Principal** : Équipe SmartBin
+- **Auteur Principal** : Équipe SmartBin (FlowCreativeStudio"Florian"; Cyrille; Valentin)
 - **Contributions** : Améliorations bienvenues via Pull Requests
 
 ---
@@ -347,9 +347,8 @@ Ce projet est sous licence Creative Commons Attribution-NonCommercial (CC BY-NC)
 
 - **Problèmes** : Ouvrir une [Issue GitHub](https://github.com/sayfox8/SmartBin_SI/issues)
 - **Documentation** : Voir le dossier [docs/](docs/)
-- **Site YOLO** : https://github.com/ultralytics/ultralytics
 
 ---
 
 **Dernière mise à jour** : Février 2026  
-**Version** : 2.0 - Documentation Complète
+**Version** : 9.0 - Documentation Complète
