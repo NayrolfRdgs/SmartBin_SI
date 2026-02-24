@@ -34,6 +34,7 @@ except Exception:
 if USER_INTERFACE_ENABLED:
     import requests
     import time
+    import webbrowser
 
 # Connexions globales
 _conn = None
@@ -177,6 +178,11 @@ def ask_user_for_bin(item_name):
             if resp.ok:
                 data = resp.json()
                 task_id = data.get('task_id')
+                # Ouvrir automatiquement l'interface utilisateur dans le navigateur
+                try:
+                    webbrowser.open(f"http://127.0.0.1:{USER_INTERFACE_PORT}/?task={task_id}")
+                except Exception:
+                    pass
                 # Poller la réponse (timeout total ~20s)
                 answer_url = f"http://127.0.0.1:{USER_INTERFACE_PORT}/api/answer/{task_id}"
                 start = time.time()
@@ -363,6 +369,26 @@ def run_manual_mode():
     """Boucle interactive : tu tapes le nom de l'objet, le système trie (DB + Arduino)."""
     init_database()
     init_serial_connection()
+    # Lancer les interfaces si demandé
+    try:
+        from config import ADMIN_AUTOSTART, ADMIN_INTERFACE_PORT, USER_INTERFACE_PORT
+        if ADMIN_AUTOSTART:
+            import socket, subprocess, sys
+            base = Path(__file__).resolve().parent.parent
+            admin_path = base / 'interfaces' / 'admin_interface' / 'app.py'
+            user_path = base / 'interfaces' / 'user_interface' / 'app.py'
+            try:
+                s = socket.socket(); s.settimeout(0.5); s.connect(('127.0.0.1', ADMIN_INTERFACE_PORT)); s.close()
+            except Exception:
+                if admin_path.exists():
+                    subprocess.Popen([sys.executable, str(admin_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                s2 = socket.socket(); s2.settimeout(0.5); s2.connect(('127.0.0.1', USER_INTERFACE_PORT)); s2.close()
+            except Exception:
+                if user_path.exists():
+                    subprocess.Popen([sys.executable, str(user_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
     print("\n🤖 SMART BIN SI - MODE MANUEL (sans caméra)")
     print("Tape le nom d'un objet pour lancer le tri. 'stats' = statistiques, 'quit' = quitter.\n")
     try:

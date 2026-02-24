@@ -19,7 +19,7 @@ from config import (
     AUTO_SORT_DELAY, MIN_DETECTIONS, LEARNING_MODE, SAVE_IMAGES,
     TRAINING_DIR, BIN_COLORS,
 )
-from config import ADMIN_AUTOSTART, ADMIN_INTERFACE_PORT
+from config import ADMIN_AUTOSTART, ADMIN_INTERFACE_PORT, USER_INTERFACE_PORT
 import socket
 import subprocess
 import sys
@@ -621,7 +621,7 @@ def main():
     # Démarrer l'interface administrateur automatiquement si demandé
     if ADMIN_AUTOSTART:
         try:
-            # Vérifier si quelqu'un écoute déjà sur le port
+            # Vérifier si quelqu'un écoute déjà sur les ports admin et user
             s = socket.socket()
             s.settimeout(0.5)
             try:
@@ -629,14 +629,30 @@ def main():
                 s.close()
                 print(f"→ Interface admin déjà en écoute sur le port {ADMIN_INTERFACE_PORT}")
             except Exception:
-                # Lancer le serveur admin_interface/app.py
-                admin_path = Path(__file__).resolve().parent.parent / 'admin_interface' / 'app.py'
+                # Lancer le serveur admin_interface dans interfaces/
+                admin_path = Path(__file__).resolve().parent.parent / 'interfaces' / 'admin_interface' / 'app.py'
                 if admin_path.exists():
                     print(f"→ Lancement automatique de l'interface admin ({admin_path})")
                     try:
                         subprocess.Popen([sys.executable, str(admin_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     except Exception as e:
                         print(f"⚠ Impossible de lancer l'interface admin: {e}")
+
+            # User interface
+            try:
+                s2 = socket.socket()
+                s2.settimeout(0.5)
+                s2.connect(("127.0.0.1", USER_INTERFACE_PORT))
+                s2.close()
+                print(f"→ Interface utilisateur déjà en écoute sur le port {USER_INTERFACE_PORT}")
+            except Exception:
+                user_path = Path(__file__).resolve().parent.parent / 'interfaces' / 'user_interface' / 'app.py'
+                if user_path.exists():
+                    print(f"→ Lancement automatique de l'interface utilisateur ({user_path})")
+                    try:
+                        subprocess.Popen([sys.executable, str(user_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    except Exception as e:
+                        print(f"⚠ Impossible de lancer l'interface utilisateur: {e}")
         except Exception:
             pass
     detector = WasteDetector()
