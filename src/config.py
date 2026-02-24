@@ -81,3 +81,19 @@ BIN_COLORS = {
     "brown": (50, 100, 165),  # Marron
     "unknown": (128, 128, 128)  # Gris pour inconnu
 }
+
+# ============================================
+# OPTIONS D'INTERFACES
+# ============================================
+# Démarrage automatique de l'interface administrateur lorsque l'on lance
+# les composants principaux (yolo / manual waste). Si True, le serveur
+# Flask présent dans `admin_interface/app.py` sera lancé automatiquement
+# si aucun service n'écoute sur `ADMIN_INTERFACE_PORT`.
+ADMIN_AUTOSTART = True
+ADMIN_INTERFACE_PORT = 5000
+
+# Interface utilisateur web (petite UI pour affecter un objet inconnu)
+# Si activée, `waste_classifier` tentera d'envoyer la question à
+# l'interface et d'attendre une réponse avant de retomber sur la console.
+USER_INTERFACE_ENABLED = True
+USER_INTERFACE_PORT = 5001

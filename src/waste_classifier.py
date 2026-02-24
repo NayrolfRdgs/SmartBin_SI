@@ -24,6 +24,17 @@ except ImportError:
         VALID_BINS, WASTE_TO_BIN_MAPPING,
     )
 
+# Option d'interface utilisateur web
+try:
+    from config import USER_INTERFACE_ENABLED, USER_INTERFACE_PORT
+except Exception:
+    USER_INTERFACE_ENABLED = False
+    USER_INTERFACE_PORT = 5001
+
+if USER_INTERFACE_ENABLED:
+    import requests
+    import time
+
 # Connexions globales
 _conn = None
 _serial = None
@@ -158,6 +169,32 @@ def ask_user_for_bin(item_name):
     Demande à l'utilisateur dans quel bac mettre cet objet.
     Retourne la couleur du bac ou None si annulé.
     """
+    # Si l'interface utilisateur web est activée, tenter d'envoyer la question
+    if USER_INTERFACE_ENABLED:
+        try:
+            url = f"http://127.0.0.1:{USER_INTERFACE_PORT}/api/ask"
+            resp = requests.post(url, json={'item_name': item_name}, timeout=2)
+            if resp.ok:
+                data = resp.json()
+                task_id = data.get('task_id')
+                # Poller la réponse (timeout total ~20s)
+                answer_url = f"http://127.0.0.1:{USER_INTERFACE_PORT}/api/answer/{task_id}"
+                start = time.time()
+                while time.time() - start < 20:
+                    r = requests.get(answer_url, timeout=2)
+                    if r.ok:
+                        ans = r.json()
+                        if ans.get('answered'):
+                            bin_color = ans.get('bin_color')
+                            if bin_color in VALID_BINS:
+                                return bin_color
+                            else:
+                                return None
+                    time.sleep(0.5)
+        except Exception:
+            pass
+
+    # Fallback console
     print(f"\n📦 Objet inconnu : '{item_name}'")
     print("Dans quel bac le mettre ?")
     for i, b in enumerate(VALID_BINS, 1):

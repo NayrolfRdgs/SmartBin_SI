@@ -1,0 +1,7 @@
+body{font-family:Arial,Helvetica,sans-serif;background:#f4f6f8;color:#222}
+.container{max-width:760px;margin:30px auto;padding:20px;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+h1{margin:0 0 12px;font-size:20px}
+.buttons{display:flex;gap:8px;flex-wrap:wrap}
+button{padding:8px 14px;border-radius:6px;border:1px solid #ccc;background:#eee;cursor:pointer}
+button.cancel{background:#ffc9c9}
+p{margin:8px 0}

@@ -19,6 +19,20 @@ from config import (
     AUTO_SORT_DELAY, MIN_DETECTIONS, LEARNING_MODE, SAVE_IMAGES,
     TRAINING_DIR, BIN_COLORS,
 )
+from config import ADMIN_AUTOSTART, ADMIN_INTERFACE_PORT
+import socket
+import subprocess
+import sys
+import os
+# Essayer de forcer la sortie en UTF-8 (évite UnicodeEncodeError sur Windows)
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except Exception:
+    try:
+        import io
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    except Exception:
+        pass
 
 
 # ============================================
@@ -95,35 +109,61 @@ class WasteDetector:
         Supporte YOLOv5 et YOLOv8 via torch.hub ou ultralytics
         """
         print(f"📦 Chargement du modèle depuis : {model_path}")
-        
-        if not Path(model_path).exists():
-            print(f"⚠ Fichier du modèle introuvable : {model_path}")
-            print("   Utilisation du YOLOv5s par défaut (pré-entraîné sur COCO)")
-            print("   Pour utiliser un modèle custom, entraîne-le d'abord !")
-            
-            # Charger YOLOv5s pré-entraîné comme solution de secours
-            model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
-        else:
-            # Charger le modèle custom entraîné
+        # Première tentative : utiliser l'API ultralytics (si installée)
+        try:
+            from ultralytics import YOLO
+            # Si le modèle custom existe, on l'utilise, sinon on prend le yolov5s fourni au repo
+            if Path(model_path).exists():
+                model_file = str(model_path)
+            else:
+                model_file = str(Path(__file__).resolve().parent.parent / 'yolov5s.pt')
+
             try:
-                model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path)
-                print("✓ Modèle custom chargé avec succès")
-            except Exception as e:
-                print(f"✗ Erreur lors du chargement du modèle custom : {e}")
-                print("   Retour au YOLOv5s pré-entraîné")
-                model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
-        
-        # Définir les paramètres du modèle
-        model.conf = CONFIDENCE_THRESHOLD
-        model.iou = IOU_THRESHOLD
-        
-        # Utiliser le GPU si disponible (important pour Jetson)
-        if torch.cuda.is_available():
-            model = model.cuda()
-            print("✓ Accélération GPU activée")
-        else:
-            print("⚠ Exécution sur CPU (plus lent)")
-        
+                model = YOLO(model_file)
+                self._use_ultralytics = True
+                print(f"✓ Modèle chargé via ultralytics ({model_file})")
+            except Exception as e_load:
+                # Cas fréquent : checkpoint YOLOv5 incompatible avec ultralytics (module manquant)
+                print(f"[WARN] impossible de charger '{model_file}' via ultralytics: {e_load}")
+                print("→ Retraitement: utilisation d'un modèle ultralytics officiel léger (yolov8n.pt)")
+                model = YOLO('yolov8n.pt')
+                self._use_ultralytics = True
+                print("✓ Modèle yolov8n chargé via ultralytics (fallback)")
+        except Exception as e_ultra:
+            print(f"[WARN] ultralytics non disponible ou erreur: {e_ultra}")
+            # Fallback : essayer torch.hub (ancienne méthode)
+            try:
+                if Path(model_path).exists():
+                    model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path)
+                else:
+                    model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
+                self._use_ultralytics = False
+                print("✓ Modèle chargé via torch.hub (ultralytics/yolov5)")
+            except Exception as e_hub:
+                print(f"✗ Erreur lors du chargement du modèle : {e_hub}")
+                raise
+
+        # Note : pour ultralytics on passera conf/iou au moment de l'appel d'inférence.
+        # Pour torch.hub (yolov5), on laisse les attributs si disponibles.
+        try:
+            if hasattr(model, 'conf'):
+                model.conf = CONFIDENCE_THRESHOLD
+            if hasattr(model, 'iou'):
+                model.iou = IOU_THRESHOLD
+        except Exception:
+            pass
+
+        # Si CUDA disponible, on essayera d'activer (uniquement si l'objet le supporte)
+        try:
+            if torch.cuda.is_available():
+                if hasattr(model, 'to'):
+                    model = model.to('cuda')
+                print("✓ Accélération GPU activée")
+            else:
+                print("⚠ Exécution sur CPU (plus lent)")
+        except Exception:
+            pass
+
         return model
     
     def detect_waste(self, frame):
@@ -137,7 +177,15 @@ class WasteDetector:
             results: Résultats de détection YOLO
         """
         # Exécuter l'inférence
-        results = self.model(frame)
+        # Si on utilise ultralytics, passer conf/iou en paramètres
+        try:
+            if getattr(self, '_use_ultralytics', False):
+                results = self.model(frame, conf=CONFIDENCE_THRESHOLD, iou=IOU_THRESHOLD)
+            else:
+                results = self.model(frame)
+        except TypeError:
+            # Cas où le modèle n'accepte pas ces kwargs
+            results = self.model(frame)
         return results
     
     def process_detections(self, results):
@@ -151,34 +199,74 @@ class WasteDetector:
             list: Déchets détectés avec [nom_classe, confiance, bbox]
         """
         detections = []
-        
-        # Extraire les résultats (format dépend de YOLOv5 vs YOLOv8)
+        # Extraire les résultats selon le backend utilisé
         try:
-            # Format YOLOv5
-            predictions = results.pandas().xyxy[0]
-            
-            for idx, row in predictions.iterrows():
-                class_name = row['name']
-                confidence = row['confidence']
-                bbox = [row['xmin'], row['ymin'], row['xmax'], row['ymax']]
-                
-                detections.append({
-                    'class': class_name,
-                    'confidence': confidence,
-                    'bbox': bbox
-                })
-        except:
-            # Analyse alternative si pandas non disponible
-            pred = results.xyxy[0].cpu().numpy()
-            for detection in pred:
-                x1, y1, x2, y2, conf, cls = detection
-                class_name = self.model.names[int(cls)]
-                
-                detections.append({
-                    'class': class_name,
-                    'confidence': float(conf),
-                    'bbox': [float(x1), float(y1), float(x2), float(y2)]
-                })
+            if getattr(self, '_use_ultralytics', False):
+                # ultralytics retourne souvent une liste de Results ou un Results
+                res = results[0] if isinstance(results, list) else results
+                boxes = getattr(res, 'boxes', None)
+                if boxes is not None:
+                    # boxes.xyxy, boxes.conf, boxes.cls
+                    try:
+                        xyxy = boxes.xyxy.cpu().numpy()
+                    except Exception:
+                        xyxy = boxes.xyxy.numpy() if hasattr(boxes.xyxy, 'numpy') else []
+                    try:
+                        confs = boxes.conf.cpu().numpy()
+                    except Exception:
+                        confs = boxes.conf.numpy() if hasattr(boxes.conf, 'numpy') else []
+                    try:
+                        cls_idx = boxes.cls.cpu().numpy().astype(int)
+                    except Exception:
+                        cls_idx = boxes.cls.numpy().astype(int) if hasattr(boxes.cls, 'numpy') else []
+
+                    for i, bbox in enumerate(xyxy):
+                        x1, y1, x2, y2 = [float(v) for v in bbox]
+                        confidence = float(confs[i]) if i < len(confs) else 0.0
+                        cls = int(cls_idx[i]) if i < len(cls_idx) else 0
+                        class_name = None
+                        if hasattr(self.model, 'names'):
+                            try:
+                                class_name = self.model.names[cls]
+                            except Exception:
+                                class_name = str(cls)
+                        else:
+                            class_name = str(cls)
+
+                        detections.append({
+                            'class': class_name,
+                            'confidence': confidence,
+                            'bbox': [x1, y1, x2, y2]
+                        })
+                else:
+                    # Pas de boxes → pas de détections
+                    return []
+            else:
+                # Ancien format (torch.hub / yolov5)
+                try:
+                    predictions = results.pandas().xyxy[0]
+                    for idx, row in predictions.iterrows():
+                        class_name = row['name']
+                        confidence = row['confidence']
+                        bbox = [row['xmin'], row['ymin'], row['xmax'], row['ymax']]
+                        detections.append({
+                            'class': class_name,
+                            'confidence': confidence,
+                            'bbox': bbox
+                        })
+                except Exception:
+                    pred = results.xyxy[0].cpu().numpy()
+                    for detection in pred:
+                        x1, y1, x2, y2, conf, cls = detection
+                        class_name = self.model.names[int(cls)] if hasattr(self.model, 'names') else str(int(cls))
+                        detections.append({
+                            'class': class_name,
+                            'confidence': float(conf),
+                            'bbox': [float(x1), float(y1), float(x2), float(y2)]
+                        })
+        except Exception as e:
+            print(f"⚠ Erreur extraction détections: {e}")
+            return []
         
         return detections
     
@@ -530,6 +618,27 @@ class WasteDetector:
 
 def main():
     """Exécuter la détection YOLO"""
+    # Démarrer l'interface administrateur automatiquement si demandé
+    if ADMIN_AUTOSTART:
+        try:
+            # Vérifier si quelqu'un écoute déjà sur le port
+            s = socket.socket()
+            s.settimeout(0.5)
+            try:
+                s.connect(("127.0.0.1", ADMIN_INTERFACE_PORT))
+                s.close()
+                print(f"→ Interface admin déjà en écoute sur le port {ADMIN_INTERFACE_PORT}")
+            except Exception:
+                # Lancer le serveur admin_interface/app.py
+                admin_path = Path(__file__).resolve().parent.parent / 'admin_interface' / 'app.py'
+                if admin_path.exists():
+                    print(f"→ Lancement automatique de l'interface admin ({admin_path})")
+                    try:
+                        subprocess.Popen([sys.executable, str(admin_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    except Exception as e:
+                        print(f"⚠ Impossible de lancer l'interface admin: {e}")
+        except Exception:
+            pass
     detector = WasteDetector()
     detector.run_camera_detection()
 
